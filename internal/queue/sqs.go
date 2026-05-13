@@ -37,7 +37,7 @@ func (q *SQSQueue) Enqueue(ctx context.Context, task *models.Task) error {
 	_, err = q.client.SendMessage(ctx, &sqs.SendMessageInput{
 		QueueUrl:    aws.String(q.queueURL),
 		MessageBody: aws.String(string(body)),
-		// Message attributes allow filtering without deserializing the body
+		// Message attributes allows filtering without deserializing the body
 		MessageAttributes: map[string]types.MessageAttributeValue{
 			"TaskType": {
 				DataType:    aws.String("String"),
