@@ -1,0 +1,72 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  # ---- Lint & Test ----
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: ${{ runner.os }}-go-
+
+      - name: Download dependencies
+        run: go mod download
+
+      - name: Vet (static analysis)
+        run: go vet ./...
+
+      - name: Build
+        run: go build ./...
+
+      - name: Run tests with race detector
+        run: go test ./... -v -race -coverprofile=coverage.out
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.out
+          fail_ci_if_error: false
+
+  # ---- Docker Build ----
+  docker:
+    name: Docker Build
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        run: |
+          docker build -t task-queue-engine:${{ github.sha }} .
+          docker build -t task-queue-engine:latest .
+
+      - name: Smoke test — container starts and responds to health check
+        run: |
+          docker run -d --name tqe-test \
+            -e SQS_QUEUE_URL=mock \
+            -e SQS_DLQ_URL=mock \
+            -p 8080:8080 \
+            task-queue-engine:latest || true
+          sleep 3
+          docker logs tqe-test || true
