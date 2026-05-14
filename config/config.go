@@ -7,6 +7,7 @@ import (
 )
 
 // Config holds all runtime configuration loaded from environment variables
+//prism test checking (ignore this comment)
 type Config struct {
 	AWSRegion   string
 	QueueURL    string
